@@ -1,6 +1,7 @@
-package model
+package user
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,4 +26,17 @@ type UserProfile struct {
 	Sex         string    `json:"sex"`
 	Birthday    time.Time `json:"birthday"`
 	Country     string    `json:"country"`
+}
+
+func (p *User) Validate() error {
+	if p.Username == "" {
+		return errors.New("username required")
+	}
+	if p.Password == "" {
+		return errors.New("password required")
+	}
+	if p.Email == "" {
+		return errors.New("email required")
+	}
+	return nil
 }
