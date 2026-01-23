@@ -21,7 +21,7 @@ var (
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id uuid.UUID) (*User, error)
-	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindByUsername(ctx context.Context, username string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -73,11 +73,11 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, err
 	return user, nil
 }
 
-func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	query := `SELECT id, email, password, username FROM users WHERE email = $1`
+func (r *userRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
+	query := `SELECT id, email, password, username FROM users WHERE username = $1`
 
 	user := &User{}
-	err := r.db.QueryRow(ctx, query, email).Scan(&user.ID, &user.Email, &user.Password, &user.Username)
+	err := r.db.QueryRow(ctx, query, username).Scan(&user.ID, &user.Email, &user.Password, &user.Username)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
