@@ -35,7 +35,6 @@ func main() {
 	mux := http.NewServeMux()
 
 	// User routes
-	mux.HandleFunc("POST /api/users/register", userHandler.Register)
 	mux.HandleFunc("GET /api/users/{id}", userHandler.GetByID)
 
 	// Health check

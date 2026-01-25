@@ -21,6 +21,7 @@ var (
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id uuid.UUID) (*User, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -63,6 +64,21 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, err
 
 	user := &User{}
 	err := r.db.QueryRow(ctx, query, id).Scan(&user.ID, &user.Email, &user.Username)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("unable to query user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	query := `SELECT id, email, password, username, created_at, updated_at FROM users WHERE email = $1`
+
+	user := &User{}
+	err := r.db.QueryRow(ctx, query, email).Scan(&user.ID, &user.Email, &user.Password, &user.Username, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
