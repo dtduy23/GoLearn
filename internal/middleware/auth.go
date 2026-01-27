@@ -14,6 +14,8 @@ const (
 	UserIDKey = "userID"
 	// EmailKey is the context key for user email
 	EmailKey = "email"
+	// RoleKey is the context key for user role
+	RoleKey = "role"
 	// ClaimsKey is the context key for full claims
 	ClaimsKey = "claims"
 )
@@ -117,11 +119,6 @@ func GetClaims(c *gin.Context) (*auth.Claims, bool) {
 	cl, ok := claims.(*auth.Claims)
 	return cl, ok
 }
-
-const (
-	// RoleKey is the context key for user role
-	RoleKey = "role"
-)
 
 // PremiumMiddleware requires user to have premium or admin role
 func PremiumMiddleware() gin.HandlerFunc {

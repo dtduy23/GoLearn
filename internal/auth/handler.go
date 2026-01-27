@@ -6,15 +6,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"spotify-clone/internal/ratelimit"
 	"spotify-clone/internal/user"
 )
 
 type Handler struct {
 	authService AuthService
+	rateLimiter *ratelimit.LoginRateLimiter
 }
 
-func NewHandler(authService AuthService) *Handler {
-	return &Handler{authService: authService}
+func NewHandler(authService AuthService, rateLimiter *ratelimit.LoginRateLimiter) *Handler {
+	return &Handler{
+		authService: authService,
+		rateLimiter: rateLimiter,
+	}
 }
 
 // POST /auth/register
@@ -62,15 +67,31 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	ip := c.ClientIP()
+
+	// Check if this username+IP is blocked
+	if h.rateLimiter.CheckAndBlock(c, req.Username) {
+		return
+	}
+
 	resp, err := h.authService.Login(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
+			// Record failed attempt with username + IP
+			h.rateLimiter.RecordFailedAttempt(req.Username, ip)
+			remaining := h.rateLimiter.GetRemainingAttempts(req.Username, ip)
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":              "invalid username or password",
+				"attempts_remaining": remaining,
+			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to login"})
 		return
 	}
+
+	// Reset on successful login
+	h.rateLimiter.RecordSuccessfulLogin(req.Username, ip)
 
 	c.JSON(http.StatusOK, resp)
 }
