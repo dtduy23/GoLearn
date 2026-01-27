@@ -10,6 +10,7 @@ import (
 	"spotify-clone/internal/auth"
 	"spotify-clone/internal/config"
 	"spotify-clone/internal/database"
+	"spotify-clone/internal/middleware"
 	"spotify-clone/internal/ratelimit"
 	"spotify-clone/internal/user"
 )
@@ -47,7 +48,7 @@ func main() {
 
 	// Initialize rate limiter: 5 failed attempts = block for 5 minutes
 	loginRateLimiter := ratelimit.NewLoginRateLimiter(5, 5*time.Minute)
-	authHandler := auth.NewHandler(authService, loginRateLimiter)
+	authHandler := auth.NewHandler(authService, userRepo, loginRateLimiter)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -58,6 +59,8 @@ func main() {
 		authGroup.POST("/register", authHandler.Register)
 		authGroup.POST("/login", loginRateLimiter.Middleware(), authHandler.Login)
 		authGroup.POST("/refresh", authHandler.RefreshToken)
+		// Protected route - requires valid JWT
+		authGroup.GET("/me", middleware.AuthMiddleware(jwtService), authHandler.Me)
 	}
 
 	// API routes

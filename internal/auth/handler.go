@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"spotify-clone/internal/ratelimit"
 	"spotify-clone/internal/user"
@@ -12,12 +13,14 @@ import (
 
 type Handler struct {
 	authService AuthService
+	userRepo    user.UserRepository
 	rateLimiter *ratelimit.LoginRateLimiter
 }
 
-func NewHandler(authService AuthService, rateLimiter *ratelimit.LoginRateLimiter) *Handler {
+func NewHandler(authService AuthService, userRepo user.UserRepository, rateLimiter *ratelimit.LoginRateLimiter) *Handler {
 	return &Handler{
 		authService: authService,
+		userRepo:    userRepo,
 		rateLimiter: rateLimiter,
 	}
 }
@@ -120,4 +123,45 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// GET /auth/me - Get current authenticated user
+func (h *Handler) Me(c *gin.Context) {
+	// Get userID from context (set by AuthMiddleware)
+	// Using same key as middleware.UserIDKey = "userID"
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	// Fetch user from database
+	foundUser, err := h.userRepo.FindByID(c.Request.Context(), userID)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, UserResponse{
+		ID:        foundUser.ID.String(),
+		Email:     foundUser.Email,
+		Username:  foundUser.Username,
+		Role:      foundUser.Role,
+		CreatedAt: foundUser.CreatedAt,
+	})
 }
