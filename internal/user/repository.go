@@ -37,10 +37,10 @@ func NewUserRepository(db *pgxpool.Pool) UserRepository {
 
 func (r *userRepository) Create(ctx context.Context, user *User) error {
 	query := `
-        INSERT INTO users (id, email, password, username, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (id, email, password, username, role, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
     `
-	_, err := r.db.Exec(ctx, query, user.ID, user.Email, user.Password, user.Username, user.CreatedAt, user.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, user.ID, user.Email, user.Password, user.Username, user.Role, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -60,10 +60,10 @@ func (r *userRepository) Create(ctx context.Context, user *User) error {
 }
 
 func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	query := `SELECT id, email, username FROM users WHERE id = $1`
+	query := `SELECT id, email, username, role FROM users WHERE id = $1`
 
 	user := &User{}
-	err := r.db.QueryRow(ctx, query, id).Scan(&user.ID, &user.Email, &user.Username)
+	err := r.db.QueryRow(ctx, query, id).Scan(&user.ID, &user.Email, &user.Username, &user.Role)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -75,10 +75,10 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, err
 }
 
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	query := `SELECT id, email, password, username, created_at, updated_at FROM users WHERE email = $1`
+	query := `SELECT id, email, password, username, role, created_at, updated_at FROM users WHERE email = $1`
 
 	user := &User{}
-	err := r.db.QueryRow(ctx, query, email).Scan(&user.ID, &user.Email, &user.Password, &user.Username, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRow(ctx, query, email).Scan(&user.ID, &user.Email, &user.Password, &user.Username, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -90,10 +90,10 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, 
 }
 
 func (r *userRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
-	query := `SELECT id, email, password, username FROM users WHERE username = $1`
+	query := `SELECT id, email, password, username, role, created_at, updated_at FROM users WHERE username = $1`
 
 	user := &User{}
-	err := r.db.QueryRow(ctx, query, username).Scan(&user.ID, &user.Email, &user.Password, &user.Username)
+	err := r.db.QueryRow(ctx, query, username).Scan(&user.ID, &user.Email, &user.Password, &user.Username, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -107,10 +107,10 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 func (r *userRepository) Update(ctx context.Context, user *User) error {
 	query := `
         UPDATE users
-        SET email = $2, password = $3, updated_at = $4	
+        SET email = $2, password = $3, role = $4, updated_at = $5
         WHERE id = $1
     `
-	_, err := r.db.Exec(ctx, query, user.ID, user.Email, user.Password, user.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, user.ID, user.Email, user.Password, user.Role, user.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {

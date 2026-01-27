@@ -34,3 +34,8 @@ CREATE TABLE user_profiles (
 
 -- Index for faster lookups
 CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+
+-- Add role column with default 'user'
+ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user' NOT NULL;
+-- Create index for role queries
+CREATE INDEX idx_users_role ON users(role);

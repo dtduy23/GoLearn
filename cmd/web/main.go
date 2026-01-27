@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/gin-gonic/gin"
+
+	"spotify-clone/internal/auth"
 	"spotify-clone/internal/config"
 	"spotify-clone/internal/database"
 	"spotify-clone/internal/user"
@@ -25,28 +27,50 @@ func main() {
 	defer db.Close()
 	log.Println("Connected to database")
 
+	// Initialize JWT service
+	jwtService := auth.NewJWTService(auth.JWTConfig{
+		SecretKey:          cfg.JWT.Secret,
+		AccessTokenExpiry:  cfg.JWT.Expiry,
+		RefreshTokenExpiry: cfg.JWT.RefreshTokenExpiry,
+	})
+
 	// Initialize repositories
 	userRepo := user.NewUserRepository(db)
 
+	// Initialize services
+	authService := auth.NewAuthService(userRepo, jwtService)
+
 	// Initialize handlers
 	userHandler := user.NewHandler(userRepo)
+	authHandler := auth.NewHandler(authService)
 
-	// Setup routes
-	mux := http.NewServeMux()
+	// Setup Gin router
+	r := gin.Default()
 
-	// User routes
-	mux.HandleFunc("GET /api/users/{id}", userHandler.GetByID)
+	// Auth routes (public)
+	authGroup := r.Group("/auth")
+	{
+		authGroup.POST("/register", authHandler.Register)
+		authGroup.POST("/login", authHandler.Login)
+		authGroup.POST("/refresh", authHandler.RefreshToken)
+	}
+
+	// API routes
+	api := r.Group("/api")
+	{
+		// User routes
+		api.GET("/users/:id", userHandler.GetByID)
+	}
 
 	// Health check
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "OK"})
 	})
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("Server starting on http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := r.Run(addr); err != nil {
 		log.Fatal("Server failed:", err)
 	}
 }

@@ -1,118 +1,166 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 
 	"spotify-clone/internal/auth"
 )
 
-// ContextKey is a custom type for context keys to avoid collisions
-type ContextKey string
-
 const (
 	// UserIDKey is the context key for user ID
-	UserIDKey ContextKey = "userID"
+	UserIDKey = "userID"
 	// EmailKey is the context key for user email
-	EmailKey ContextKey = "email"
+	EmailKey = "email"
 	// ClaimsKey is the context key for full claims
-	ClaimsKey ContextKey = "claims"
+	ClaimsKey = "claims"
 )
 
-// AuthMiddleware creates a middleware that validates JWT tokens
-func AuthMiddleware(jwtService auth.JWTService) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get token from Authorization header
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				writeUnauthorized(w, "missing authorization header")
+// AuthMiddleware creates a Gin middleware that validates JWT tokens
+func AuthMiddleware(jwtService auth.JWTService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
+			return
+		}
+
+		// Check Bearer prefix
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
+			return
+		}
+
+		tokenString := parts[1]
+
+		// Validate token
+		claims, err := jwtService.ValidateAccessToken(tokenString)
+		if err != nil {
+			if err == auth.ErrTokenExpired {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token has expired"})
 				return
 			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
 
-			// Check Bearer prefix
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				writeUnauthorized(w, "invalid authorization header format")
-				return
-			}
+		// Add claims to context
+		c.Set(UserIDKey, claims.UserID)
+		c.Set(EmailKey, claims.Email)
+		c.Set(RoleKey, claims.Role)
+		c.Set(ClaimsKey, claims)
 
-			tokenString := parts[1]
-
-			// Validate token
-			claims, err := jwtService.ValidateAccessToken(tokenString)
-			if err != nil {
-				if err == auth.ErrTokenExpired {
-					writeUnauthorized(w, "token has expired")
-					return
-				}
-				writeUnauthorized(w, "invalid token")
-				return
-			}
-
-			// Add claims to context
-			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-			ctx = context.WithValue(ctx, EmailKey, claims.Email)
-			ctx = context.WithValue(ctx, ClaimsKey, claims)
-
-			// Call next handler with updated context
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		// Call next handler
+		c.Next()
 	}
 }
 
 // OptionalAuthMiddleware validates token if present, but doesn't require it
-func OptionalAuthMiddleware(jwtService auth.JWTService) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
+func OptionalAuthMiddleware(jwtService auth.JWTService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
 
-			// If no auth header, continue without user context
-			if authHeader == "" {
-				next.ServeHTTP(w, r)
-				return
+		// If no auth header, continue without user context
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		// Try to parse token
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			tokenString := parts[1]
+			claims, err := jwtService.ValidateAccessToken(tokenString)
+			if err == nil {
+				// Valid token, add to context
+				c.Set(UserIDKey, claims.UserID)
+				c.Set(EmailKey, claims.Email)
+				c.Set(RoleKey, claims.Role)
+				c.Set(ClaimsKey, claims)
 			}
+		}
 
-			// Try to parse token
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-				tokenString := parts[1]
-				claims, err := jwtService.ValidateAccessToken(tokenString)
-				if err == nil {
-					// Valid token, add to context
-					ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-					ctx = context.WithValue(ctx, EmailKey, claims.Email)
-					ctx = context.WithValue(ctx, ClaimsKey, claims)
-					r = r.WithContext(ctx)
-				}
-			}
-
-			next.ServeHTTP(w, r)
-		})
+		c.Next()
 	}
 }
 
-// GetUserID extracts user ID from context
-func GetUserID(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(UserIDKey).(string)
-	return userID, ok
+// GetUserID extracts user ID from Gin context
+func GetUserID(c *gin.Context) (string, bool) {
+	userID, exists := c.Get(UserIDKey)
+	if !exists {
+		return "", false
+	}
+	id, ok := userID.(string)
+	return id, ok
 }
 
-// GetEmail extracts email from context
-func GetEmail(ctx context.Context) (string, bool) {
-	email, ok := ctx.Value(EmailKey).(string)
-	return email, ok
+// GetEmail extracts email from Gin context
+func GetEmail(c *gin.Context) (string, bool) {
+	email, exists := c.Get(EmailKey)
+	if !exists {
+		return "", false
+	}
+	e, ok := email.(string)
+	return e, ok
 }
 
-// GetClaims extracts full claims from context
-func GetClaims(ctx context.Context) (*auth.Claims, bool) {
-	claims, ok := ctx.Value(ClaimsKey).(*auth.Claims)
-	return claims, ok
+// GetClaims extracts full claims from Gin context
+func GetClaims(c *gin.Context) (*auth.Claims, bool) {
+	claims, exists := c.Get(ClaimsKey)
+	if !exists {
+		return nil, false
+	}
+	cl, ok := claims.(*auth.Claims)
+	return cl, ok
 }
 
-func writeUnauthorized(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
-	w.Write([]byte(`{"error":"` + message + `"}`))
+const (
+	// RoleKey is the context key for user role
+	RoleKey = "role"
+)
+
+// PremiumMiddleware requires user to have premium or admin role
+func PremiumMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, exists := GetClaims(c)
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		if claims.Role != "premium" && claims.Role != "admin" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "premium subscription required"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// AdminMiddleware requires user to have admin role
+func AdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, exists := GetClaims(c)
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		if claims.Role != "admin" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// GetRole extracts role from Gin context
+func GetRole(c *gin.Context) (string, bool) {
+	role, exists := c.Get(RoleKey)
+	if !exists {
+		return "", false
+	}
+	r, ok := role.(string)
+	return r, ok
 }
