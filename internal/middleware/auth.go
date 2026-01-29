@@ -14,8 +14,6 @@ const (
 	UserIDKey = "userID"
 	// EmailKey is the context key for user email
 	EmailKey = "email"
-	// RoleKey is the context key for user role
-	RoleKey = "role"
 	// ClaimsKey is the context key for full claims
 	ClaimsKey = "claims"
 )
@@ -53,7 +51,6 @@ func AuthMiddleware(jwtService auth.JWTService) gin.HandlerFunc {
 		// Add claims to context
 		c.Set(UserIDKey, claims.UserID)
 		c.Set(EmailKey, claims.Email)
-		c.Set(RoleKey, claims.Role)
 		c.Set(ClaimsKey, claims)
 
 		// Call next handler
@@ -81,7 +78,6 @@ func OptionalAuthMiddleware(jwtService auth.JWTService) gin.HandlerFunc {
 				// Valid token, add to context
 				c.Set(UserIDKey, claims.UserID)
 				c.Set(EmailKey, claims.Email)
-				c.Set(RoleKey, claims.Role)
 				c.Set(ClaimsKey, claims)
 			}
 		}
@@ -118,46 +114,4 @@ func GetClaims(c *gin.Context) (*auth.Claims, bool) {
 	}
 	cl, ok := claims.(*auth.Claims)
 	return cl, ok
-}
-
-// PremiumMiddleware requires user to have premium or admin role
-func PremiumMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		claims, exists := GetClaims(c)
-		if !exists {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-			return
-		}
-		if claims.Role != "premium" && claims.Role != "admin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "premium subscription required"})
-			return
-		}
-		c.Next()
-	}
-}
-
-// AdminMiddleware requires user to have admin role
-func AdminMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		claims, exists := GetClaims(c)
-		if !exists {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-			return
-		}
-		if claims.Role != "admin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required"})
-			return
-		}
-		c.Next()
-	}
-}
-
-// GetRole extracts role from Gin context
-func GetRole(c *gin.Context) (string, bool) {
-	role, exists := c.Get(RoleKey)
-	if !exists {
-		return "", false
-	}
-	r, ok := role.(string)
-	return r, ok
 }

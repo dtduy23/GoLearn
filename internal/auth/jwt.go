@@ -16,13 +16,12 @@ var (
 type Claims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email,omitempty"`
-	Role   string `json:"role,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // JWTService defines JWT operations interface
 type JWTService interface {
-	GenerateAccessToken(userID, email, role string) (string, time.Time, error)
+	GenerateAccessToken(userID, email string) (string, time.Time, error)
 	GenerateRefreshToken(userID string) (string, error)
 	ValidateAccessToken(tokenString string) (*Claims, error)
 	ValidateRefreshToken(tokenString string) (*Claims, error)
@@ -51,13 +50,12 @@ func NewJWTService(config JWTConfig) JWTService {
 }
 
 // GenerateAccessToken creates a new access token
-func (s *jwtService) GenerateAccessToken(userID, email, role string) (string, time.Time, error) {
+func (s *jwtService) GenerateAccessToken(userID, email string) (string, time.Time, error) {
 	expiresAt := time.Now().Add(s.accessTokenExpiry)
 
 	claims := &Claims{
 		UserID: userID,
 		Email:  email,
-		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

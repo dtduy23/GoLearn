@@ -52,7 +52,6 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 		Email:     req.Email,
 		Username:  req.Username,
 		Password:  string(hashedPassword),
-		Role:      user.RoleUser, // Default role for new users
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -63,7 +62,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	}
 
 	// Generate tokens
-	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(newUser.ID.String(), newUser.Email, newUser.Role)
+	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(newUser.ID.String(), newUser.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,6 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 			ID:        newUser.ID.String(),
 			Email:     newUser.Email,
 			Username:  newUser.Username,
-			Role:      newUser.Role,
 			CreatedAt: newUser.CreatedAt,
 		},
 	}, nil
@@ -104,7 +102,7 @@ func (s *authService) Login(ctx context.Context, req LoginRequest) (*AuthRespons
 	}
 
 	// Generate tokens
-	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(foundUser.ID.String(), foundUser.Email, foundUser.Role)
+	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(foundUser.ID.String(), foundUser.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +120,6 @@ func (s *authService) Login(ctx context.Context, req LoginRequest) (*AuthRespons
 			ID:        foundUser.ID.String(),
 			Email:     foundUser.Email,
 			Username:  foundUser.Username,
-			Role:      foundUser.Role,
 			CreatedAt: foundUser.CreatedAt,
 		},
 	}, nil
@@ -148,7 +145,7 @@ func (s *authService) RefreshToken(ctx context.Context, req RefreshTokenRequest)
 	}
 
 	// Generate new tokens
-	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(foundUser.ID.String(), foundUser.Email, foundUser.Role)
+	accessToken, expiresAt, err := s.jwtService.GenerateAccessToken(foundUser.ID.String(), foundUser.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +163,6 @@ func (s *authService) RefreshToken(ctx context.Context, req RefreshTokenRequest)
 			ID:        foundUser.ID.String(),
 			Email:     foundUser.Email,
 			Username:  foundUser.Username,
-			Role:      foundUser.Role,
 			CreatedAt: foundUser.CreatedAt,
 		},
 	}, nil

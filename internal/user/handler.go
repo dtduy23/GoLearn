@@ -39,6 +39,5 @@ func (h *Handler) GetByID(c *gin.Context) {
 		"id":       user.ID,
 		"email":    user.Email,
 		"username": user.Username,
-		"role":     user.Role,
 	})
 }

@@ -21,7 +21,7 @@
 
 # Environment variables (QUAN TRỌNG - chứa secrets!)
 .env
-.env.local
+.env.local 
 .env.*.local
 
 # OS files
@@ -29,7 +29,7 @@
 Thumbs.db
 
 # Logs
-*.log
+*.log 
 logs/
 
 # Uploaded files (music, images) - optional
@@ -52,3 +52,6 @@ __debug_bin
 
 #docs file
 docs/
+
+/tests
+/test

@@ -161,7 +161,6 @@ func (h *Handler) Me(c *gin.Context) {
 		ID:        foundUser.ID.String(),
 		Email:     foundUser.Email,
 		Username:  foundUser.Username,
-		Role:      foundUser.Role,
 		CreatedAt: foundUser.CreatedAt,
 	})
 }
