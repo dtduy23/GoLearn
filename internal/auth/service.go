@@ -48,7 +48,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	// Create user entity
 	now := time.Now()
 	newUser := &user.User{
-		ID:        uuid.New(),
+		ID:        uuid.Must(uuid.NewV7()),
 		Email:     req.Email,
 		Username:  req.Username,
 		Password:  string(hashedPassword),

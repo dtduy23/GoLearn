@@ -55,3 +55,10 @@ docs/
 
 /tests
 /test
+
+*test.*
+
+assets/
+
+web/static/images
+web/static/music

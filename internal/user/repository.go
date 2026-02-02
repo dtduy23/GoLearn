@@ -46,7 +46,7 @@ func (r *userRepository) Create(ctx context.Context, user *User) error {
 		if errors.As(err, &pgErr) {
 			// PostgreSQL error code 23505 = unique_violation
 			if pgErr.Code == "23505" {
-				if pgErr.ConstraintName == "users_email_unique" {
+				if pgErr.ConstraintName == "users_email_unique" || pgErr.ConstraintName == "users_email_key" {
 					return ErrEmailExists
 				}
 				if pgErr.ConstraintName == "users_username_unique" {
